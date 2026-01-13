@@ -37,6 +37,45 @@
             font-size: 2em;
         }
 
+        .loading-status {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .loading-status.loading {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .loading-status.success {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .loading-status.error {
+            color: #e74c3c;
+            background: #ffebee;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
         .button-container {
             display: flex;
             gap: 15px;
@@ -58,12 +97,12 @@
             box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
 
-        button:hover {
+        button:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
         }
 
-        button:active {
+        button:active:not(:disabled) {
             transform: translateY(0);
         }
 
@@ -106,65 +145,18 @@
             white-space: pre-wrap;
             font-size: 1.05em;
         }
-
-        .loading {
-            text-align: center;
-            color: #666;
-            font-style: italic;
-        }
-
-        .error {
-            color: #e74c3c;
-            text-align: center;
-            padding: 20px;
-            background: #ffebee;
-            border-radius: 10px;
-        }
-
-        .file-input-container {
-            margin-bottom: 30px;
-            text-align: center;
-        }
-
-        .file-input-label {
-            display: inline-block;
-            background: #28a745;
-            color: white;
-            padding: 15px 40px;
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
-        }
-
-        .file-input-label:hover {
-            background: #218838;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.6);
-        }
-
-        #fileInput {
-            display: none;
-        }
-
-        .files-loaded {
-            color: #28a745;
-            margin-top: 10px;
-            font-weight: 600;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🎲 Random Page Viewer</h1>
         
-        <div class="file-input-container">
-            <label for="fileInput" class="file-input-label">
-                📁 Load Text Files (603 files)
-            </label>
-            <input type="file" id="fileInput" multiple accept=".txt" webkitdirectory directory>
-            <div id="fileStatus"></div>
+        <div id="loadingStatus" class="loading-status loading">
+            Loading files...
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+            <div id="progressText" style="margin-top: 10px;">0 / 302</div>
         </div>
 
         <div class="button-container">
@@ -176,45 +168,68 @@
     </div>
 
     <script>
+        const TOTAL_FILES = 302;
+        const FILE_PATH = 'data/'; // Change this if files are in a different folder
+        
         let textFiles = [];
         let currentIndex = -1;
 
-        const fileInput = document.getElementById('fileInput');
-        const fileStatus = document.getElementById('fileStatus');
+        const loadingStatus = document.getElementById('loadingStatus');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
         const randomBtn = document.getElementById('randomBtn');
         const anotherBtn = document.getElementById('anotherBtn');
         const resultDiv = document.getElementById('result');
 
-        // Load files
-        fileInput.addEventListener('change', function(e) {
-            const files = Array.from(e.target.files).filter(f => f.name.endsWith('.txt'));
-            
-            if (files.length === 0) {
-                fileStatus.innerHTML = '<div class="error">No text files found!</div>';
-                return;
+        // Load all files from server
+        async function loadAllFiles() {
+            const promises = [];
+            let loadedCount = 0;
+
+            for (let i = 1; i <= TOTAL_FILES; i++) {
+                const filename = `page${i}_extracted.txt`;
+                const promise = fetch(`${FILE_PATH}${filename}`)
+                    .then(response => {
+                        if (!response.ok) throw new Error(`File not found: ${filename}`);
+                        return response.text();
+                    })
+                    .then(content => {
+                        loadedCount++;
+                        progressFill.style.width = `${(loadedCount / TOTAL_FILES) * 100}%`;
+                        progressText.textContent = `${loadedCount} / ${TOTAL_FILES}`;
+                        return {
+                            name: filename,
+                            content: content
+                        };
+                    })
+                    .catch(err => {
+                        console.warn(`Failed to load ${filename}:`, err);
+                        return null;
+                    });
+                
+                promises.push(promise);
             }
 
-            fileStatus.innerHTML = '<div class="loading">Loading files...</div>';
-            
-            Promise.all(files.map(file => {
-                return new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => resolve({
-                        name: file.name,
-                        content: e.target.result
-                    });
-                    reader.readAsText(file);
-                });
-            }))
-            .then(loadedFiles => {
-                textFiles = loadedFiles;
-                fileStatus.innerHTML = `<div class="files-loaded">✅ ${textFiles.length} files loaded successfully!</div>`;
-                randomBtn.disabled = false;
-            })
-            .catch(err => {
-                fileStatus.innerHTML = `<div class="error">Error loading files: ${err.message}</div>`;
-            });
-        });
+            try {
+                const results = await Promise.all(promises);
+                textFiles = results.filter(file => file !== null);
+                
+                if (textFiles.length === 0) {
+                    loadingStatus.className = 'loading-status error';
+                    loadingStatus.innerHTML = `
+                        ❌ No files could be loaded!<br>
+                        <small>Make sure files are in the "${FILE_PATH}" folder</small>
+                    `;
+                } else {
+                    loadingStatus.className = 'loading-status success';
+                    loadingStatus.innerHTML = `✅ ${textFiles.length} files loaded successfully!`;
+                    randomBtn.disabled = false;
+                }
+            } catch (err) {
+                loadingStatus.className = 'loading-status error';
+                loadingStatus.innerHTML = `❌ Error loading files: ${err.message}`;
+            }
+        }
 
         // Cryptographically secure random function
         function getSecureRandomIndex(max) {
@@ -226,7 +241,7 @@
         // Show random page
         function showRandomPage() {
             if (textFiles.length === 0) {
-                resultDiv.innerHTML = '<div class="error">Please load files first!</div>';
+                resultDiv.innerHTML = '<div class="error">No files loaded!</div>';
                 resultDiv.classList.add('show');
                 return;
             }
@@ -247,6 +262,9 @@
 
         randomBtn.addEventListener('click', showRandomPage);
         anotherBtn.addEventListener('click', showRandomPage);
+
+        // Load files when page loads
+        loadAllFiles();
     </script>
 </body>
 </html>
