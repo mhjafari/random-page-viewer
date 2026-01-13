@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Page Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 2em;
+        }
+
+        .button-container {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        #result {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            min-height: 300px;
+            display: none;
+        }
+
+        #result.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .page-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .content {
+            color: #333;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            font-size: 1.05em;
+        }
+
+        .loading {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+        }
+
+        .error {
+            color: #e74c3c;
+            text-align: center;
+            padding: 20px;
+            background: #ffebee;
+            border-radius: 10px;
+        }
+
+        .file-input-container {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 15px 40px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        .file-input-label:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.6);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .files-loaded {
+            color: #28a745;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎲 Random Page Viewer</h1>
+        
+        <div class="file-input-container">
+            <label for="fileInput" class="file-input-label">
+                📁 Load Text Files (603 files)
+            </label>
+            <input type="file" id="fileInput" multiple accept=".txt" webkitdirectory directory>
+            <div id="fileStatus"></div>
+        </div>
+
+        <div class="button-container">
+            <button id="randomBtn" disabled>🎯 Show Random Page</button>
+            <button id="anotherBtn" style="display: none;">🔄 Get Another</button>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        let textFiles = [];
+        let currentIndex = -1;
+
+        const fileInput = document.getElementById('fileInput');
+        const fileStatus = document.getElementById('fileStatus');
+        const randomBtn = document.getElementById('randomBtn');
+        const anotherBtn = document.getElementById('anotherBtn');
+        const resultDiv = document.getElementById('result');
+
+        // Load files
+        fileInput.addEventListener('change', function(e) {
+            const files = Array.from(e.target.files).filter(f => f.name.endsWith('.txt'));
+            
+            if (files.length === 0) {
+                fileStatus.innerHTML = '<div class="error">No text files found!</div>';
+                return;
+            }
+
+            fileStatus.innerHTML = '<div class="loading">Loading files...</div>';
+            
+            Promise.all(files.map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve({
+                        name: file.name,
+                        content: e.target.result
+                    });
+                    reader.readAsText(file);
+                });
+            }))
+            .then(loadedFiles => {
+                textFiles = loadedFiles;
+                fileStatus.innerHTML = `<div class="files-loaded">✅ ${textFiles.length} files loaded successfully!</div>`;
+                randomBtn.disabled = false;
+            })
+            .catch(err => {
+                fileStatus.innerHTML = `<div class="error">Error loading files: ${err.message}</div>`;
+            });
+        });
+
+        // Cryptographically secure random function
+        function getSecureRandomIndex(max) {
+            const array = new Uint32Array(1);
+            crypto.getRandomValues(array);
+            return array[0] % max;
+        }
+
+        // Show random page
+        function showRandomPage() {
+            if (textFiles.length === 0) {
+                resultDiv.innerHTML = '<div class="error">Please load files first!</div>';
+                resultDiv.classList.add('show');
+                return;
+            }
+
+            currentIndex = getSecureRandomIndex(textFiles.length);
+            const selectedFile = textFiles[currentIndex];
+
+            resultDiv.innerHTML = `
+                <div class="page-info">
+                    📄 ${selectedFile.name} (Page ${currentIndex + 1} of ${textFiles.length})
+                </div>
+                <div class="content">${selectedFile.content}</div>
+            `;
+            
+            resultDiv.classList.add('show');
+            anotherBtn.style.display = 'inline-block';
+        }
+
+        randomBtn.addEventListener('click', showRandomPage);
+        anotherBtn.addEventListener('click', showRandomPage);
+    </script>
+</body>
+</html>
