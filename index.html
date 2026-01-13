@@ -145,9 +145,93 @@
             white-space: pre-wrap;
             font-size: 1.05em;
         }
+
+        /* -------- Password overlay -------- */
+        #passwordOverlay {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+
+        .password-box {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 420px;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .password-box h2 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.6em;
+        }
+
+        .password-box p {
+            color: #555;
+            line-height: 1.5;
+            margin-bottom: 18px;
+        }
+
+        .password-box input {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 1.05em;
+            border-radius: 12px;
+            border: 1px solid #ccc;
+            outline: none;
+        }
+
+        .password-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 18px;
+        }
+
+        .password-actions button {
+            width: 100%;
+            padding: 14px 16px;
+        }
+
+        #passwordError {
+            margin-top: 12px;
+            color: #e74c3c;
+            font-weight: 600;
+            min-height: 1.2em;
+        }
+
+        .tiny-note {
+            margin-top: 10px;
+            font-size: 0.85em;
+            color: #777;
+        }
+        /* ---------------------------------- */
     </style>
 </head>
 <body>
+
+    <!-- Password Gate (client-side) -->
+    <div id="passwordOverlay" aria-label="Password gate">
+        <div class="password-box">
+            <h2>🔐 Private Access</h2>
+            <p>Please enter the password to continue.</p>
+            <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
+            <div class="password-actions">
+                <button type="button" onclick="checkPassword()">Enter</button>
+                <button type="button" onclick="logout()" title="Forget saved login">Logout</button>
+            </div>
+            <div id="passwordError"></div>
+            <div class="tiny-note">Note: this is a lightweight client-side lock (not secure against determined users).</div>
+        </div>
+    </div>
+
     <div class="container">
         <h1>Take your time</h1>
         
@@ -168,6 +252,71 @@
     </div>
 
     <script>
+        /* =========================
+           Password Gate Settings
+           ========================= */
+        const PASSWORD = "letmein";          // <-- CHANGE THIS
+        const AUTH_KEY = "rpv_authed_v1";    // localStorage key
+
+        function hideOverlay() {
+            const overlay = document.getElementById("passwordOverlay");
+            if (overlay) overlay.style.display = "none";
+        }
+
+        function showOverlay() {
+            const overlay = document.getElementById("passwordOverlay");
+            if (overlay) overlay.style.display = "flex";
+        }
+
+        function checkPassword() {
+            const inputEl = document.getElementById("passwordInput");
+            const errEl = document.getElementById("passwordError");
+            const input = (inputEl?.value || "").trim();
+
+            if (input === PASSWORD) {
+                localStorage.setItem(AUTH_KEY, "true");
+                errEl.textContent = "";
+                hideOverlay();
+                // Only start loading files after successful login:
+                loadAllFiles();
+            } else {
+                errEl.textContent = "Incorrect password";
+                if (inputEl) inputEl.select();
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem(AUTH_KEY);
+            // Optional: clear UI state
+            showOverlay();
+            const errEl = document.getElementById("passwordError");
+            if (errEl) errEl.textContent = "";
+            const inputEl = document.getElementById("passwordInput");
+            if (inputEl) inputEl.value = "";
+        }
+
+        // Allow Enter key to submit password
+        document.addEventListener("DOMContentLoaded", () => {
+            const inputEl = document.getElementById("passwordInput");
+            if (inputEl) {
+                inputEl.addEventListener("keydown", (e) => {
+                    if (e.key === "Enter") checkPassword();
+                });
+            }
+
+            // If already authenticated, unlock and load immediately
+            if (localStorage.getItem(AUTH_KEY) === "true") {
+                hideOverlay();
+                loadAllFiles();
+            } else {
+                showOverlay();
+                // IMPORTANT: do NOT call loadAllFiles() yet.
+            }
+        });
+
+        /* =========================
+           Your Existing App Code
+           ========================= */
         const FILE_PATH = 'data/'; // Change this if files are in a different folder
         
         // Generate odd numbers from 1 to 603
@@ -189,6 +338,10 @@
 
         // Load all files from server
         async function loadAllFiles() {
+            // Prevent double-loading if user clicks Enter multiple times
+            if (loadAllFiles._started) return;
+            loadAllFiles._started = true;
+
             const promises = [];
             let loadedCount = 0;
 
@@ -269,8 +422,8 @@
         randomBtn.addEventListener('click', showRandomPage);
         anotherBtn.addEventListener('click', showRandomPage);
 
-        // Load files when page loads
-        loadAllFiles();
+        // IMPORTANT: we no longer call loadAllFiles() here unconditionally.
+        // It is called after successful password entry (or if already authenticated).
     </script>
 </body>
 </html>
