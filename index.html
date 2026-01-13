@@ -220,15 +220,13 @@
     <!-- Password Gate (client-side) -->
     <div id="passwordOverlay" aria-label="Password gate">
         <div class="password-box">
-            <h2>🔐 Private Access</h2>
-            <p>Please enter the password to continue.</p>
+            <p>Enter the password</p>
             <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
             <div class="password-actions">
                 <button type="button" onclick="checkPassword()">Enter</button>
                 <button type="button" onclick="logout()" title="Forget saved login">Logout</button>
             </div>
             <div id="passwordError"></div>
-            <div class="tiny-note">Note: this is a lightweight client-side lock (not secure against determined users).</div>
         </div>
     </div>
 
@@ -252,9 +250,6 @@
     </div>
 
     <script>
-        /* =========================
-           Password Gate Settings
-           ========================= */
         const PASSWORD = "letmein";          // <-- CHANGE THIS
         const AUTH_KEY = "rpv_authed_v1";    // localStorage key
 
