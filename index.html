@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Page Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 2em;
+        }
+
+        .loading-status {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .loading-status.loading {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .loading-status.success {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .loading-status.error {
+            color: #e74c3c;
+            background: #ffebee;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .button-container {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        #result {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            min-height: 300px;
+            display: none;
+        }
+
+        #result.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .page-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .content {
+            color: #333;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            font-size: 1.05em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎲 Random Page Viewer</h1>
+        
+        <div id="loadingStatus" class="loading-status loading">
+            Loading files...
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+            <div id="progressText" style="margin-top: 10px;">0 / 302</div>
+        </div>
+
+        <div class="button-container">
+            <button id="randomBtn" disabled>🎯 Show Random Page</button>
+            <button id="anotherBtn" style="display: none;">🔄 Get Another</button>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const TOTAL_FILES = 302;
+        const FILE_PATH = 'data/'; // Change this if files are in a different folder
+        
+        let textFiles = [];
+        let currentIndex = -1;
+
+        const loadingStatus = document.getElementById('loadingStatus');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const randomBtn = document.getElementById('randomBtn');
+        const anotherBtn = document.getElementById('anotherBtn');
+        const resultDiv = document.getElementById('result');
+
+        // Load all files from server
+        async function loadAllFiles() {
+            const promises = [];
+            let loadedCount = 0;
+
+            for (let i = 1; i <= TOTAL_FILES; i++) {
+                const filename = `page${i}_extracted.txt`;
+                const promise = fetch(`${FILE_PATH}${filename}`)
+                    .then(response => {
+                        if (!response.ok) throw new Error(`File not found: ${filename}`);
+                        return response.text();
+                    })
+                    .then(content => {
+                        loadedCount++;
+                        progressFill.style.width = `${(loadedCount / TOTAL_FILES) * 100}%`;
+                        progressText.textContent = `${loadedCount} / ${TOTAL_FILES}`;
+                        return {
+                            name: filename,
+                            content: content
+                        };
+                    })
+                    .catch(err => {
+                        console.warn(`Failed to load ${filename}:`, err);
+                        return null;
+                    });
+                
+                promises.push(promise);
+            }
+
+            try {
+                const results = await Promise.all(promises);
+                textFiles = results.filter(file => file !== null);
+                
+                if (textFiles.length === 0) {
+                    loadingStatus.className = 'loading-status error';
+                    loadingStatus.innerHTML = `
+                        ❌ No files could be loaded!<br>
+                        <small>Make sure files are in the "${FILE_PATH}" folder</small>
+                    `;
+                } else {
+                    loadingStatus.className = 'loading-status success';
+                    loadingStatus.innerHTML = `✅ ${textFiles.length} files loaded successfully!`;
+                    randomBtn.disabled = false;
+                }
+            } catch (err) {
+                loadingStatus.className = 'loading-status error';
+                loadingStatus.innerHTML = `❌ Error loading files: ${err.message}`;
+            }
+        }
+
+        // Cryptographically secure random function
+        function getSecureRandomIndex(max) {
+            const array = new Uint32Array(1);
+            crypto.getRandomValues(array);
+            return array[0] % max;
+        }
+
+        // Show random page
+        function showRandomPage() {
+            if (textFiles.length === 0) {
+                resultDiv.innerHTML = '<div class="error">No files loaded!</div>';
+                resultDiv.classList.add('show');
+                return;
+            }
+
+            currentIndex = getSecureRandomIndex(textFiles.length);
+            const selectedFile = textFiles[currentIndex];
+
+            resultDiv.innerHTML = `
+                <div class="page-info">
+                    📄 ${selectedFile.name} (Page ${currentIndex + 1} of ${textFiles.length})
+                </div>
+                <div class="content">${selectedFile.content}</div>
+            `;
+            
+            resultDiv.classList.add('show');
+            anotherBtn.style.display = 'inline-block';
+        }
+
+        randomBtn.addEventListener('click', showRandomPage);
+        anotherBtn.addEventListener('click', showRandomPage);
+
+        // Load files when page loads
+        loadAllFiles();
+    </script>
+</body>
+</html>
